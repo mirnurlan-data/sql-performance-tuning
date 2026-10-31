@@ -1,23 +1,34 @@
 # PostgreSQL Query Performance Lab
 
-A **reproducible SQL tuning exercise** using 25,000 synthetic customers and 400,000 synthetic orders. Diagnose a customer-order lookup with `EXPLAIN (ANALYZE, BUFFERS)`, add a targeted composite index, and compare real PostgreSQL execution plans.
+[![PostgreSQL Lab CI](https://github.com/mirnurlan-data/sql-performance-tuning/actions/workflows/ci.yml/badge.svg)](https://github.com/mirnurlan-data/sql-performance-tuning/actions/workflows/ci.yml)
 
-**Important:** Results are not fabricated. The benchmark creates local `results/before.txt` and `results/after.txt` only when you run it; no unmeasured speedup is claimed.
+A reproducible educational demonstration of PostgreSQL 16 query tuning over **25,000 synthetic customers** and **400,000 synthetic orders**.
 
-## Quick start
+## Architecture and measured evidence
 
-Requirements: Docker Engine and Docker Compose.
+[Architecture and engineering trade-offs](docs/architecture.md) · [Benchmark methodology](docs/methodology.md)
+
+```text
+Generate synthetic sales → run baseline query and EXPLAIN
+                         → add targeted covering index
+                         → re-run same query and EXPLAIN
+                         → compare output rows and record actual timing
+```
+
+## Run it locally
+
+Requirements: Docker Compose and Python 3.10+.
 
 ```bash
 docker compose up -d --wait
 bash scripts/benchmark.sh
+python scripts/summarize_plans.py
+python -m unittest discover -s tests -v
 ```
 
-Open `results/before.txt` and `results/after.txt` to compare execution time, scan strategy, sort behavior, and buffers. Query results are saved as `results/rows_before.txt` and `results/rows_after.txt`; the runner compares both and fails if they differ.
+This creates `results/before.txt`, `results/after.txt`, `results/rows_before.txt`, `results/rows_after.txt`, and `results/summary.json`. GitHub Actions saves the measured evidence as an artifact for each run.
 
-## Workload
-
-The query filters for one customer and a date range, then orders the latest events:
+## SQL strategy
 
 ```sql
 SELECT order_id, ordered_at, total_amount
@@ -28,7 +39,7 @@ ORDER BY ordered_at DESC, order_id DESC
 LIMIT 20;
 ```
 
-It is intentionally measured before and after this index:
+Targeted index:
 
 ```sql
 CREATE INDEX idx_orders_customer_recent
@@ -36,18 +47,15 @@ ON lab.orders (customer_id, ordered_at DESC, order_id DESC)
 INCLUDE (total_amount);
 ```
 
-The actual optimizer plan depends on workload, PostgreSQL version, cache state and statistics; an index-only scan or a particular speedup is **not** guaranteed.
+The project validates that the before/after result rows are identical. **No specific speedup is promised:** query planner behavior and measured time depend on data and environment. The JSON summary is the actual result from the current run, not a fabricated success claim.
 
-## Files
+## Code map
 
-- [sql/01_schema.sql](sql/01_schema.sql): relational schema and constraints
-- [sql/02_seed.sql](sql/02_seed.sql): deterministic synthetic data
-- [queries/customer_orders.sql](queries/customer_orders.sql): lookup query
-- [sql/03_optimization.sql](sql/03_optimization.sql): composite index
-- [scripts/benchmark.sh](scripts/benchmark.sh): repeatable before/after run with correctness check
-- [docs/methodology.md](docs/methodology.md): validity, limitations and safe use
-- [.github/workflows/ci.yml](.github/workflows/ci.yml): Docker-based integration run
+- `sql/`: schema, synthetic seed, index migration
+- `queries/`: analyzed customer-order lookup
+- `scripts/benchmark.sh`: live query correctness and plan capture
+- `scripts/summarize_plans.py`: extract plan timings and produce JSON
+- `tests/`: parser validation tests
+- `docs/`: architecture, methodology and production trade-offs
 
-## Safety and scope
-
-**This script resets the `lab` schema in a dedicated Docker demo database.** Do not use this script against production or client databases. The local credentials are for demonstration only. All records are synthetic, and this portfolio project is not proof of a production deployment. Use `docker compose down -v` only if you deliberately want to erase the demo volume.
+**Safety:** the benchmark resets the `lab` schema of its *disposable Docker demo database*. It should never be pointed at client or production data.
