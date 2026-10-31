@@ -27,7 +27,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: postgres-explain-plans
-          path: |\n            results/*.txt\n            results/*.json
+          path: |
+            results/*.txt
+            results/*.json
           if-no-files-found: ignore
       - name: Stop demo database
         if: always()
