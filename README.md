@@ -2,22 +2,17 @@
 
 [![PostgreSQL Lab CI](https://github.com/mirnurlan-data/sql-performance-tuning/actions/workflows/ci.yml/badge.svg)](https://github.com/mirnurlan-data/sql-performance-tuning/actions/workflows/ci.yml)
 
-A reproducible educational demonstration of PostgreSQL 16 query tuning over **25,000 synthetic customers** and **400,000 synthetic orders**.
+A reproducible PostgreSQL 16 query tuning lab over **25,000 synthetic customers** and **400,000 synthetic orders**.
 
-## Architecture and measured evidence
+## Engineering evidence
 
-[Architecture and engineering trade-offs](docs/architecture.md) · [Benchmark methodology](docs/methodology.md)
+The CI workflow runs a disposable PostgreSQL database, executes the same query with and without a composite index, compares **identical output rows**, and captures real `EXPLAIN (ANALYZE, BUFFERS)` evidence. It additionally collects **five timed trials per configuration** and produces a JSON summary with median, min, max and nearest-rank p95.
 
-```text
-Generate synthetic sales → run baseline query and EXPLAIN
-                         → add targeted covering index
-                         → re-run same query and EXPLAIN
-                         → compare output rows and record actual timing
-```
+[Latest CI workflow and artifacts](https://github.com/mirnurlan-data/sql-performance-tuning/actions/workflows/ci.yml) · [Methodology and limitations](docs/methodology.md) · [Architecture](docs/architecture.md)
 
-## Run it locally
+## Run
 
-Requirements: Docker Compose and Python 3.10+.
+Requires Docker Compose and Python 3.10+:
 
 ```bash
 docker compose up -d --wait
@@ -26,36 +21,26 @@ python scripts/summarize_plans.py
 python -m unittest discover -s tests -v
 ```
 
-This creates `results/before.txt`, `results/after.txt`, `results/rows_before.txt`, `results/rows_after.txt`, and `results/summary.json`. GitHub Actions saves the measured evidence as an artifact for each run.
+After the run, inspect `results/before.txt`, `results/after.txt`, `results/trials_before.txt`, `results/trials_after.txt` and `results/summary.json`. All are generated from actual executions and uploaded by CI, not hard-coded.
 
-## SQL strategy
+## Query and targeted index
 
 ```sql
 SELECT order_id, ordered_at, total_amount
 FROM lab.orders
-WHERE customer_id = 4242
-  AND ordered_at >= TIMESTAMP '2025-06-01'
+WHERE customer_id = 4242 AND ordered_at >= TIMESTAMP '2025-06-01'
 ORDER BY ordered_at DESC, order_id DESC
 LIMIT 20;
-```
 
-Targeted index:
-
-```sql
 CREATE INDEX idx_orders_customer_recent
 ON lab.orders (customer_id, ordered_at DESC, order_id DESC)
 INCLUDE (total_amount);
 ```
 
-The project validates that the before/after result rows are identical. **No specific speedup is promised:** query planner behavior and measured time depend on data and environment. The JSON summary is the actual result from the current run, not a fabricated success claim.
+The composite B-tree index may support the equality filter, date range, and sort, but a specific execution plan or speedup is **not** promised.
 
-## Code map
+## Design boundaries
 
-- `sql/`: schema, synthetic seed, index migration
-- `queries/`: analyzed customer-order lookup
-- `scripts/benchmark.sh`: live query correctness and plan capture
-- `scripts/summarize_plans.py`: extract plan timings and produce JSON
-- `tests/`: parser validation tests
-- `docs/`: architecture, methodology and production trade-offs
+This is a single synthetic lookup measured in consecutive phases, **not** a production-concurrency benchmark. The new index consumes disk and adds write cost. See [methodology](docs/methodology.md) for confounders and better experimental design.
 
-**Safety:** the benchmark resets the `lab` schema of its *disposable Docker demo database*. It should never be pointed at client or production data.
+**Safety:** the runner drops and recreates the `lab` schema in the disposable Docker demo database. Never use it against production or client data.
