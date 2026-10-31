@@ -1,0 +1,4 @@
+results/*.txt
+!results/.gitkeep
+.env
+__pycache__/

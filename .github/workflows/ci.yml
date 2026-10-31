@@ -1,0 +1,23 @@
+name: PostgreSQL Lab CI
+on:
+  push:
+  pull_request:
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start disposable PostgreSQL instance
+        run: docker compose up -d --wait
+      - name: Execute benchmark and validate rows
+        run: bash scripts/benchmark.sh
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-explain-plans
+          path: results/*.txt
+          if-no-files-found: ignore
+      - name: Stop demo database
+        if: always()
+        run: docker compose down -v
