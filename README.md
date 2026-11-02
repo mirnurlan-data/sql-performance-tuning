@@ -39,6 +39,10 @@ INCLUDE (total_amount);
 
 The composite B-tree index may support the equality filter, date range, and sort, but a specific execution plan or speedup is **not** promised.
 
+## Query-plan evidence
+
+The machine-readable CI summary also reports whether the captured baseline and indexed plans actually reference `idx_orders_customer_recent`. This is observed planner behavior, **not** a guaranteed index scan or speedup. Review the full EXPLAIN artifacts when interpreting results.
+
 ## Design boundaries
 
 This is a single synthetic lookup measured in consecutive phases, **not** a production-concurrency benchmark. The new index consumes disk and adds write cost. See [methodology](docs/methodology.md) for confounders and better experimental design.
