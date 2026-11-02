@@ -23,6 +23,14 @@ class PlanParserTests(unittest.TestCase):
             self.assertEqual(module.timings(p, 5), [1., 2., 3., 4., 5.])
             self.assertEqual(module.stats([5., 1., 3., 2., 4.])["median_ms"], 3.)
 
+    def test_reports_index_usage_without_assuming_planner_choice(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "plan.txt"
+            p.write_text("Index Scan using idx_orders_customer_recent on orders\\n", encoding="utf-8")
+            self.assertTrue(module.uses_target_index(p))
+            p.write_text("Seq Scan on orders\\n", encoding="utf-8")
+            self.assertFalse(module.uses_target_index(p))
+
     def test_rejects_missing_or_nonpositive_samples(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "plan.txt"
