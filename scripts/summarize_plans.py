@@ -24,6 +24,12 @@ def timing(path: Path) -> float:
     return timings(path, 1)[0]
 
 
+def uses_target_index(path: Path) -> bool:
+    """Report observed planner choice without assuming the index is always chosen."""
+    plan = path.read_text(encoding="utf-8")
+    return "idx_orders_customer_recent" in plan
+
+
 def stats(samples: list[float]) -> dict:
     ordered = sorted(samples)
     return {
@@ -45,6 +51,8 @@ def summarize() -> dict:
         "workload": "Synthetic 25k customers, 400k orders, one customer-orders query",
         "baseline_plan_execution_ms": timing(ROOT / "results/before.txt"),
         "indexed_plan_execution_ms": timing(ROOT / "results/after.txt"),
+        "baseline_uses_target_index": uses_target_index(ROOT / "results/before.txt"),
+        "indexed_uses_target_index": uses_target_index(ROOT / "results/after.txt"),
         "baseline": stats(baseline),
         "indexed": stats(indexed),
         "median_change_percent": round((after - before) / before * 100, 2),

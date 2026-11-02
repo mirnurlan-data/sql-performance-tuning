@@ -18,3 +18,7 @@ These measurements are sequential, not randomized or paired on identical cold-ca
 ## Engineering follow-up
 
 For a real production decision, benchmark multiple high-frequency query shapes on anonymized realistic datasets, restore data between trials, randomize comparison order, track write overhead and disk cost of indexes, report latency distributions, use representative concurrency, and plan migrations with rollback and query-plan monitoring.
+
+## Planner choice evidence
+
+The CI summary includes `baseline_uses_target_index` and `indexed_uses_target_index`, derived from the captured plan text. The presence of an index does **not** guarantee that PostgreSQL chooses an index scan; inspection of the full EXPLAIN plans remains necessary. A non-use result is not itself a test failure.
